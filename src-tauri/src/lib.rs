@@ -4440,11 +4440,9 @@ export AMP_API_KEY="proxypal-local"
                 });
                 if is_thinking_model {
                     model_config["reasoning"] = serde_json::json!(true);
-                    model_config["options"] = serde_json::json!({
-                        "thinking": {
-                            "type": "enabled",
-                            "budgetTokens": thinking_budget
-                        }
+                    // Use interleaved format for openai-compatible SDK to handle reasoning_content
+                    model_config["interleaved"] = serde_json::json!({
+                        "field": "reasoning_content"
                     });
                 } else if is_gpt5_model && user_reasoning_effort != "none" {
                     // Add reasoning effort for GPT-5.x models (Codex)
@@ -4459,12 +4457,12 @@ export AMP_API_KEY="proxypal-local"
             }
             
             // Create or update opencode.json with proxypal provider
-            // Use @ai-sdk/anthropic for native Anthropic API support
+            // Use @ai-sdk/openai-compatible since CLIProxyAPI returns OpenAI-compatible format
             let opencode_config = serde_json::json!({
                 "$schema": "https://opencode.ai/config.json",
                 "provider": {
                     "proxypal": {
-                        "npm": "@ai-sdk/anthropic",
+                        "npm": "@ai-sdk/openai-compatible",
                         "name": "ProxyPal",
                         "options": {
                             "baseURL": endpoint_v1,
