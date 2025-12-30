@@ -286,6 +286,7 @@ export interface AppConfig {
 	proxyApiKey?: string; // API key for client authentication
 	managementKey?: string; // Management API key for internal proxy calls
 	commercialMode?: boolean; // Disable request logging for lower memory usage
+	wsAuth?: boolean; // Require authentication for WebSocket connections
 	sshConfigs?: SshConfig[];
 	cloudflareConfigs?: CloudflareConfig[];
 }

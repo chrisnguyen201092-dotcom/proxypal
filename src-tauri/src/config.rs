@@ -74,6 +74,8 @@ pub struct AppConfig {
     #[serde(default)]
     pub commercial_mode: bool,
     #[serde(default)]
+    pub ws_auth: bool,
+    #[serde(default)]
     pub ssh_configs: Vec<SshConfig>,
     #[serde(default)]
     pub cloudflare_configs: Vec<CloudflareConfig>,
@@ -143,6 +145,7 @@ impl Default for AppConfig {
             proxy_api_key: "proxypal-local".to_string(),
             management_key: "proxypal-mgmt-key".to_string(),
 commercial_mode: false,
+            ws_auth: false,
             ssh_configs: Vec::new(),
             cloudflare_configs: Vec::new(),
         }

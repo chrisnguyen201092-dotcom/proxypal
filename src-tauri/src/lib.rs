@@ -673,11 +673,11 @@ async fn start_proxy(
         .collect();
     
     let amp_model_mappings_section = if enabled_mappings.is_empty() {
-        "  # model-mappings:  # Optional: map Amp model requests to different models\n  #   - name: claude-opus-4-5-20251101\n  #     alias: your-preferred-model".to_string()
+        "  # model-mappings:  # Optional: map Amp model requests to different models\n  #   - from: claude-opus-4-5-20251101\n  #     to: your-preferred-model".to_string()
     } else {
         let mut mappings = String::from("  model-mappings:");
         for mapping in &enabled_mappings {
-            mappings.push_str(&format!("\n    - name: {}\n      alias: {}", mapping.name, mapping.alias));
+            mappings.push_str(&format!("\n    - from: {}\n      to: {}", mapping.name, mapping.alias));
         }
         mappings
     };
@@ -921,6 +921,12 @@ payload:
         thinking_budget
     );
     
+    // Build routing section based on config
+    let routing_section = format!(
+        "# Routing strategy for multiple API keys\nrouting:\n  strategy: \"{}\"\n\n",
+        config.routing_strategy
+    );
+    
     // Always regenerate config on start because CLIProxyAPI hashes the secret-key in place
     // and we need the plaintext key for Management API access
     let mut proxy_config = format!(
@@ -934,6 +940,7 @@ usage-statistics-enabled: {}
 logging-to-file: {}
 logs-max-total-size-mb: {}
 request-retry: {}
+max-retry-interval: {}
 {}
 # Quota exceeded behavior
 quota-exceeded:
@@ -946,7 +953,7 @@ remote-management:
   secret-key: "{}"
   disable-control-panel: true
 
-{}{}{}{}{}# Amp CLI Integration - enables amp login and management routes
+{}{}{}{}{}{}# Amp CLI Integration - enables amp login and management routes
 # See: https://help.router-for.me/agent-client/amp-cli.html
 # Get API key from: https://ampcode.com/settings
 ampcode:
@@ -954,6 +961,12 @@ ampcode:
 {}
 {}
   restrict-management-to-localhost: false
+  force-model-mappings: {}
+
+# Additional settings
+request-log: {}
+commercial-mode: {}
+ws-auth: {}
 "#,
         config.port,
         config.proxy_api_key,
@@ -962,6 +975,7 @@ ampcode:
         config.logging_to_file,
         config.logs_max_total_size_mb,
         config.request_retry,
+        config.max_retry_interval,
         proxy_url_line,
         config.quota_switch_project,
         config.quota_switch_preview_model,
@@ -970,9 +984,14 @@ ampcode:
         claude_api_key_section,
         gemini_api_key_section,
         codex_api_key_section,
+        routing_section,
         payload_section,
         amp_api_key_line,
-        amp_model_mappings_section
+        amp_model_mappings_section,
+        config.force_model_mappings,
+        config.request_logging,
+        config.commercial_mode,
+        config.ws_auth
     );
     
     // Append user customizations from proxy-config-custom.yaml if it exists

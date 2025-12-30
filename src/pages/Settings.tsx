@@ -737,7 +737,12 @@ export function SettingsPage() {
 
 	// Raw YAML Config handlers
 	const loadYamlConfig = async () => {
-		if (!appStore.proxyStatus().running) return;
+		if (!appStore.proxyStatus().running) {
+			setYamlContent(
+				"# Proxy is not running. Start the proxy to load configuration.",
+			);
+			return;
+		}
 		setLoadingYaml(true);
 		try {
 			const yaml = await getConfigYaml();
@@ -765,11 +770,7 @@ export function SettingsPage() {
 
 	// Load YAML when expanding the editor
 	createEffect(() => {
-		if (
-			yamlConfigExpanded() &&
-			appStore.proxyStatus().running &&
-			!yamlContent()
-		) {
+		if (yamlConfigExpanded() && !yamlContent()) {
 			loadYamlConfig();
 		}
 	});
