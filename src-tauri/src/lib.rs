@@ -4381,10 +4381,10 @@ async fn test_provider_connection(
     model_id: String,
     state: State<'_, AppState>,
 ) -> Result<ProviderTestResult, String> {
-    let config = state.config.lock().unwrap();
-    let port = config.port;
-    let api_key = config.proxy_api_key.clone();
-    drop(config);
+    let (port, api_key) = {
+        let config = state.config.lock().unwrap();
+        (config.port, config.proxy_api_key.clone())
+    };
 
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
@@ -7674,7 +7674,7 @@ pub fn run() {
             import_usage_stats,
             get_available_models,
             test_openai_provider,
-            fetch_openai_compatible_models,
+            test_provider_connection,
             fetch_openai_compatible_models,
             // API Keys Management
             get_gemini_api_keys,
