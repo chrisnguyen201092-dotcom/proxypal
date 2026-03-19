@@ -450,6 +450,34 @@ pub(crate) fn get_model_limits(model_id: &str, owned_by: &str, source: &str) -> 
         }
     }
     
+    // MiniMax models (via iFlow)
+    if model_lower.contains("minimax") {
+        return (1000000, 65536);
+    }
+    
+    // GLM models (via iFlow)
+    if model_lower.starts_with("glm-") {
+        if model_lower.starts_with("glm-5") {
+            // GLM-5: larger context and output
+            return (128000, 131072);
+        }
+        return (128000, 16384);
+    }
+    
+    // Kimi models (via iFlow)
+    if model_lower.starts_with("kimi-") {
+        if model_lower.contains("k2.5") {
+            // Kimi K2.5: multimodal agentic model with larger output
+            return (128000, 65536);
+        }
+        return (128000, 32768);
+    }
+    
+    // iFlow-specific models (tstars, iflow-rome)
+    if model_lower.starts_with("tstars") || model_lower.starts_with("iflow-") {
+        return (128000, 16384);
+    }
+    
     // Fallback to owned_by for any remaining models
     match owned_by {
         "anthropic" => (200000, 64000),
@@ -457,6 +485,7 @@ pub(crate) fn get_model_limits(model_id: &str, owned_by: &str, source: &str) -> 
         "openai" => (128000, 16384),
         "qwen" => (262144, 65536),
         "deepseek" => (128000, 8192),
+        "iflow" => (128000, 16384),
         _ => (128000, 16384) // safe defaults
     }
 }
