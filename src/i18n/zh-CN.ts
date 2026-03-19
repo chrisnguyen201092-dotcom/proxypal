@@ -526,6 +526,10 @@ export const zhCN = {
     authorizationUrl: "授权链接",
     connect: "连接 {{provider}}",
     copyUrl: "复制链接",
+    manualCodeHint: "如果浏览器没有自动跳转，请在此粘贴授权码",
+    manualCodeLabel: "授权码",
+    manualCodePlaceholder: "粘贴浏览器中的授权码",
+    manualCodeSubmit: "提交授权码",
     startOAuth: "开始 OAuth",
   },
   requestMonitor: {

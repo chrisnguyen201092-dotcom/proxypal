@@ -23,6 +23,7 @@ import {
   type AgentConfigResult,
   type AvailableModel,
   appendToShellProfile,
+  completeOAuth,
   type CopilotConfig,
   type DeviceCodeResponse,
   detectCliAgents,
@@ -32,6 +33,7 @@ import {
   getUsageStats,
   importVertexCredential,
   type OAuthUrlResponse,
+  onOAuthCallback,
   onRequestLog,
   openUrlInBrowser,
   type Provider,
@@ -166,6 +168,7 @@ export function DashboardPage() {
   const [oauthModalProvider, setOauthModalProvider] = createSignal<Provider | null>(null);
   const [oauthUrlData, setOauthUrlData] = createSignal<OAuthUrlResponse | null>(null);
   const [oauthLoading, setOauthLoading] = createSignal(false);
+  const [showManualCodeInput, setShowManualCodeInput] = createSignal(false);
 
   // Device Code Modal state
   const [deviceCodeProvider, setDeviceCodeProvider] = createSignal<Provider | null>(null);
@@ -251,9 +254,41 @@ export function DashboardPage() {
       }, 1000);
     });
 
+    // Listen for deep-link OAuth callback (faster than polling)
+    const unlistenOAuth = await onOAuthCallback(async (data) => {
+      const provider = oauthModalProvider();
+      if (provider && data.provider === provider) {
+        try {
+          const newAuth = await completeOAuth(data.provider, data.code);
+          setAuthStatus(newAuth);
+          setOauthLoading(false);
+          setOauthModalProvider(null);
+          setOauthUrlData(null);
+          setShowManualCodeInput(false);
+          setRecentlyConnected((prev) => new Set([...prev, provider]));
+          setTimeout(() => {
+            setRecentlyConnected((prev) => {
+              const next = new Set(prev);
+              next.delete(provider);
+              return next;
+            });
+          }, 2000);
+          toastStore.success(
+            t("dashboard.toasts.providerConnected", {
+              provider: getProviderName(provider),
+            }),
+            t("dashboard.toasts.youCanNowUseThisProvider"),
+          );
+        } catch (error) {
+          console.error("OAuth callback completion failed:", error);
+        }
+      }
+    });
+
     // Cleanup listener on unmount
     onCleanup(() => {
       unlisten();
+      unlistenOAuth();
     });
   });
 
@@ -386,6 +421,7 @@ export function DashboardPage() {
     }
 
     setOauthLoading(true);
+    setShowManualCodeInput(false);
 
     try {
       // Open the browser with the OAuth URL
@@ -397,6 +433,11 @@ export function DashboardPage() {
         t("dashboard.toasts.completeAuthenticationInBrowser"),
       );
 
+      // Show manual code input after 10 seconds if deep-link hasn't fired
+      const manualInputTimer = setTimeout(() => {
+        setShowManualCodeInput(true);
+      }, 10000);
+
       // Start polling for OAuth completion
       let attempts = 0;
       const maxAttempts = 120;
@@ -406,6 +447,7 @@ export function DashboardPage() {
           const completed = await pollOAuthStatus(urlData.state);
           if (completed) {
             clearInterval(pollInterval);
+            clearTimeout(manualInputTimer);
             // Add delay to ensure file is written before scanning
             await new Promise((resolve) => setTimeout(resolve, 500));
 
@@ -452,7 +494,10 @@ export function DashboardPage() {
           console.error("Poll error:", error);
         }
       }, 1000);
-      onCleanup(() => clearInterval(pollInterval));
+      onCleanup(() => {
+        clearInterval(pollInterval);
+        clearTimeout(manualInputTimer);
+      });
     } catch (error) {
       console.error("Failed to open OAuth:", error);
       setOauthLoading(false);
@@ -525,6 +570,40 @@ export function DashboardPage() {
     setOauthModalProvider(null);
     setOauthUrlData(null);
     setOauthLoading(false);
+    setShowManualCodeInput(false);
+  };
+
+  const handleSubmitCode = async (code: string) => {
+    const provider = oauthModalProvider();
+    if (!provider) return;
+
+    setOauthLoading(true);
+    try {
+      const newAuth = await completeOAuth(provider, code);
+      setAuthStatus(newAuth);
+      setOauthLoading(false);
+      setOauthModalProvider(null);
+      setOauthUrlData(null);
+      setShowManualCodeInput(false);
+      setRecentlyConnected((prev) => new Set([...prev, provider]));
+      setTimeout(() => {
+        setRecentlyConnected((prev) => {
+          const next = new Set(prev);
+          next.delete(provider);
+          return next;
+        });
+      }, 2000);
+      toastStore.success(
+        t("dashboard.toasts.providerConnected", {
+          provider: getProviderName(provider),
+        }),
+        t("dashboard.toasts.youCanNowUseThisProvider"),
+      );
+    } catch (error) {
+      console.error("Manual code submission failed:", error);
+      setOauthLoading(false);
+      toastStore.error(t("dashboard.toasts.connectionFailed"), String(error));
+    }
   };
 
   const handleDisconnect = async (provider: Provider) => {
@@ -903,8 +982,10 @@ export function DashboardPage() {
         onAlreadyAuthorized={handleAlreadyAuthorized}
         onCancel={handleCancelOAuth}
         onStartOAuth={handleStartOAuth}
+        onSubmitCode={handleSubmitCode}
         provider={oauthModalProvider()}
         providerName={oauthModalProvider() ? getProviderName(oauthModalProvider()!) : ""}
+        showManualInput={showManualCodeInput()}
       />
 
       {/* Device Code Modal */}

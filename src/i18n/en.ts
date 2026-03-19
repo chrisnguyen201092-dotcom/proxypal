@@ -535,6 +535,10 @@ export const en = {
     authorizationUrl: "Authorization URL",
     connect: "Connect {{provider}}",
     copyUrl: "Copy URL",
+    manualCodeHint: "If the browser didn't redirect back, paste the authorization code here",
+    manualCodeLabel: "Authorization Code",
+    manualCodePlaceholder: "Paste code from browser",
+    manualCodeSubmit: "Submit Code",
     startOAuth: "Start OAuth",
   },
   requestMonitor: {

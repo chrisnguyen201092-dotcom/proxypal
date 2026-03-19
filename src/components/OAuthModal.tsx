@@ -24,12 +24,15 @@ interface OAuthModalProps {
   onAlreadyAuthorized: () => void;
   onCancel: () => void;
   onStartOAuth: () => void;
+  onSubmitCode?: (code: string) => void;
   provider: Provider | null;
   providerName: string;
+  showManualInput?: boolean;
 }
 
 export function OAuthModal(props: OAuthModalProps) {
   const [copied, setCopied] = createSignal(false);
+  const [manualCode, setManualCode] = createSignal("");
   const { t } = useI18n();
 
   const handleCopy = async () => {
@@ -151,6 +154,41 @@ export function OAuthModal(props: OAuthModalProps) {
 
           {/* Footer Actions */}
           <div class="space-y-2 border-t border-gray-100 px-5 pb-5 pt-2 dark:border-gray-700">
+            {/* Manual code input - shown when deep-link redirect fails */}
+            <Show when={props.showManualInput && props.onSubmitCode}>
+              <div class="space-y-1.5 rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-900/20">
+                <p class="text-xs text-amber-700 dark:text-amber-400">
+                  {t("oauth.manualCodeHint")}
+                </p>
+                <label class="text-xs font-medium text-amber-800 dark:text-amber-300">
+                  {t("oauth.manualCodeLabel")}
+                </label>
+                <div class="flex gap-2">
+                  <input
+                    class="flex-1 rounded-md border border-amber-300 bg-white px-2.5 py-1.5 font-mono text-xs text-gray-900 placeholder-gray-400 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 dark:border-amber-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
+                    disabled={props.loading}
+                    onInput={(e) => setManualCode(e.currentTarget.value)}
+                    placeholder={t("oauth.manualCodePlaceholder")}
+                    type="text"
+                    value={manualCode()}
+                  />
+                  <button
+                    class="flex-shrink-0 rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-amber-700 disabled:opacity-50 dark:bg-amber-700 dark:hover:bg-amber-600"
+                    disabled={props.loading || !manualCode().trim()}
+                    onClick={() => {
+                      const code = manualCode().trim();
+                      if (code && props.onSubmitCode) {
+                        props.onSubmitCode(code);
+                        setManualCode("");
+                      }
+                    }}
+                  >
+                    {t("oauth.manualCodeSubmit")}
+                  </button>
+                </div>
+              </div>
+            </Show>
+
             {/* I already authorized - styled as secondary action */}
             <button
               class="flex w-full items-center justify-center gap-2 rounded-lg border border-green-200 bg-green-50 py-2.5 text-sm font-medium text-green-700 transition-colors hover:bg-green-100 dark:border-green-800 dark:bg-green-900/20 dark:text-green-400 dark:hover:bg-green-900/30"
