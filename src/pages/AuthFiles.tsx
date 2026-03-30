@@ -306,9 +306,7 @@ export function AuthFilesPage() {
     }
     try {
       const result = await batchDeleteAuthFiles(ids);
-      toastStore.success(
-        t("authFiles.toasts.batchDeleted", { count: result.deleted }),
-      );
+      toastStore.success(t("authFiles.toasts.batchDeleted", { count: result.deleted }));
       if (result.errors && result.errors.length > 0) {
         toastStore.error(
           t("authFiles.toasts.batchDeleteErrors", { count: result.errors.length }),
@@ -469,9 +467,7 @@ export function AuthFilesPage() {
                 >
                   <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <Show
-                      fallback={
-                        <rect height="14" rx="2" stroke-width="2" width="14" x="5" y="5" />
-                      }
+                      fallback={<rect height="14" rx="2" stroke-width="2" width="14" x="5" y="5" />}
                       when={
                         filteredFiles().length > 0 &&
                         filteredFiles().every((f) => selectedIds().has(f.id))
@@ -572,8 +568,18 @@ export function AuthFilesPage() {
                             type="button"
                           >
                             <Show when={selectedIds().has(file.id)}>
-                              <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="3" />
+                              <svg
+                                class="h-3 w-3"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  d="M5 13l4 4L19 7"
+                                  stroke-linecap="round"
+                                  stroke-linejoin="round"
+                                  stroke-width="3"
+                                />
                               </svg>
                             </Show>
                           </button>
@@ -654,7 +660,12 @@ export function AuthFilesPage() {
                             {/* Note from auth file metadata (v6.8.55+) */}
                             <Show when={file.note}>
                               <div class="mt-1.5 flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
-                                <svg class="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg
+                                  class="h-3.5 w-3.5 shrink-0"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
                                   <path
                                     d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"
                                     stroke-linecap="round"

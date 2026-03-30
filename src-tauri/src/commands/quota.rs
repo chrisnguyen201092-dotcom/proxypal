@@ -8,9 +8,9 @@ use crate::types::{AuthStatus, ProviderTestResult};
 async fn refresh_antigravity_token(client: &reqwest::Client, refresh_token: &str) -> Result<String, String> {
     let token_url = "https://oauth2.googleapis.com/token";
     
-    // Antigravity OAuth credentials (from CLIProxyAPI)
-    let client_id = "1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com";
-    let client_secret = "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";
+    // Antigravity OAuth credentials injected at build time (see .env.example)
+    let client_id = env!("ANTIGRAVITY_CLIENT_ID", "Set ANTIGRAVITY_CLIENT_ID env var (see .env.example)");
+    let client_secret = env!("ANTIGRAVITY_CLIENT_SECRET", "Set ANTIGRAVITY_CLIENT_SECRET env var (see .env.example)");
     
     let params = [
         ("client_id", client_id),

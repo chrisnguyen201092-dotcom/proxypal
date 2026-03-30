@@ -4,6 +4,36 @@ use std::path::Path;
 use std::process::Command;
 
 fn main() {
+    // Load .env file for build-time environment variables (OAuth credentials, etc.)
+    // The .env file is gitignored; see .env.example for required variables.
+    let dotenv_path = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().join(".env");
+    if dotenv_path.exists() {
+        if let Ok(content) = fs::read_to_string(&dotenv_path) {
+            for line in content.lines() {
+                let line = line.trim();
+                if line.is_empty() || line.starts_with('#') {
+                    continue;
+                }
+                if let Some((key, value)) = line.split_once('=') {
+                    let key = key.trim();
+                    let value = value.trim().trim_matches('"').trim_matches('\'');
+                    // Only emit if not already set (CI/env overrides .env file)
+                    if env::var(key).is_err() {
+                        // cargo:rustc-env makes the var available to env!() in source code
+                        println!("cargo:rustc-env={}={}", key, value);
+                    }
+                }
+            }
+        }
+    }
+    // Also forward env vars already set (e.g., from CI) so env!() can see them
+    for key in &["ANTIGRAVITY_CLIENT_ID", "ANTIGRAVITY_CLIENT_SECRET"] {
+        if let Ok(val) = env::var(key) {
+            println!("cargo:rustc-env={}={}", key, val);
+        }
+    }
+    println!("cargo:rerun-if-changed=../.env");
+
     // Get the target triple for the current build
     let target = env::var("TARGET")
         .unwrap_or_else(|_| env::var("HOST").unwrap_or_else(|_| String::from("unknown")));
