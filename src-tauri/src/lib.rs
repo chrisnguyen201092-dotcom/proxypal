@@ -54,6 +54,8 @@ pub(crate) const GPT5_BASE_MODELS: &[&str] = &[
     "gpt-5.4",
     "gpt-5.4-mini",
     "gpt-5.4-nano",
+    "gpt-5.5",
+    "gpt-5.5-fast",
 ];
 
 // GPT-5 reasoning level suffixes

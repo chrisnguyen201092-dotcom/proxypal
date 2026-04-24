@@ -979,8 +979,23 @@ fn configure_opencode_agent(
     // Build dynamic models object from available models
     // OpenCode needs model configs with name and limits
     let mut models_obj = serde_json::Map::new();
+    let mut opencode_models = models.to_vec();
 
-    for m in models {
+    // The OpenCode reconfigure button writes ~/.config/opencode/opencode.json from the
+    // backend model list. Ensure newly released GPT-5.5 aliases are present even when
+    // the running sidecar's /v1/models response is stale, because ProxyPal's generated
+    // proxy config can route these GPT-5 reasoning aliases through the proxypal provider.
+    for model_id in ["gpt-5.5", "gpt-5.5-fast"] {
+        if !opencode_models.iter().any(|m| m.id == model_id) {
+            opencode_models.push(AvailableModel {
+                id: model_id.to_string(),
+                owned_by: "openai".to_string(),
+                source: "opencode-reconfigure".to_string(),
+            });
+        }
+    }
+
+    for m in &opencode_models {
         let (context_limit, output_limit) =
             crate::commands::models::get_model_limits(&m.id, &m.owned_by, &m.source);
         let display_name =
@@ -1204,7 +1219,7 @@ fn configure_opencode_agent(
         "success": true,
         "configType": "config",
         "configPath": config_path.to_string_lossy(),
-        "modelsConfigured": models.len(),
+        "modelsConfigured": opencode_models.len(),
         "instructions": "ProxyPal provider added to OpenCode. Run 'opencode' and use /models to select a model (e.g., proxypal/gemini-2.5-pro). OpenCode uses AI SDK (ai-sdk.dev) and models.dev registry."
     }))
 }

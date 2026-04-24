@@ -5,9 +5,20 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      sidecar_channel:
+        description: "Sidecar release channel to bundle"
+        required: true
+        default: "plus"
+        type: choice
+        options:
+          - plus
+          - mainline
 
 env:
   CARGO_TERM_COLOR: always
+  CLIPROXYAPI_CHANNEL: ${{ github.event.inputs.sidecar_channel || 'plus' }}
 
 jobs:
   check:
@@ -107,34 +118,26 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Download CLIProxyAPIPlus binary
+      - name: Download CLIProxyAPI sidecar binary
         shell: bash
         env:
-          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -e
           mkdir -p src-tauri/binaries
 
           case "${{ matrix.target }}" in
             aarch64-apple-darwin)
-              ASSET_PATTERN="*darwin_arm64.tar.gz"
               BINARY="cli-proxy-api-aarch64-apple-darwin"
-              ARCHIVE_TYPE="tar"
               ;;
             x86_64-apple-darwin)
-              ASSET_PATTERN="*darwin_amd64.tar.gz"
               BINARY="cli-proxy-api-x86_64-apple-darwin"
-              ARCHIVE_TYPE="tar"
               ;;
             x86_64-unknown-linux-gnu)
-              ASSET_PATTERN="*linux_amd64.tar.gz"
               BINARY="cli-proxy-api-x86_64-unknown-linux-gnu"
-              ARCHIVE_TYPE="tar"
               ;;
             x86_64-pc-windows-msvc)
-              ASSET_PATTERN="*windows_amd64.zip"
               BINARY="cli-proxy-api-x86_64-pc-windows-msvc.exe"
-              ARCHIVE_TYPE="zip"
               ;;
             *)
               echo "Unknown target: ${{ matrix.target }}"
@@ -142,45 +145,8 @@ jobs:
               ;;
           esac
 
-          echo "Downloading CLIProxyAPIPlus for ${{ matrix.target }}..."
-          cd /tmp
-          gh release download --repo router-for-me/CLIProxyAPIPlus --pattern "$ASSET_PATTERN" --clobber
-
-          ARCHIVE=$(ls $ASSET_PATTERN 2>/dev/null | head -1)
-          echo "Extracting $ARCHIVE..."
-
-          if [ "$ARCHIVE_TYPE" = "zip" ]; then
-            unzip -q "$ARCHIVE"
-          else
-            tar -xzf "$ARCHIVE"
-          fi
-
-          # CLIProxyAPIPlus binary detection (prioritize Plus naming, fallback to original)
-          if [ -f "cli-proxy-api-plus" ]; then
-            cp cli-proxy-api-plus "$GITHUB_WORKSPACE/src-tauri/binaries/$BINARY"
-            chmod +x "$GITHUB_WORKSPACE/src-tauri/binaries/$BINARY"
-          elif [ -f "cli-proxy-api-plus.exe" ]; then
-            cp cli-proxy-api-plus.exe "$GITHUB_WORKSPACE/src-tauri/binaries/$BINARY"
-          elif [ -f "CLIProxyAPIPlus" ]; then
-            cp CLIProxyAPIPlus "$GITHUB_WORKSPACE/src-tauri/binaries/$BINARY"
-            chmod +x "$GITHUB_WORKSPACE/src-tauri/binaries/$BINARY"
-          elif [ -f "CLIProxyAPIPlus.exe" ]; then
-            cp CLIProxyAPIPlus.exe "$GITHUB_WORKSPACE/src-tauri/binaries/$BINARY"
-          elif [ -f "CLIProxyAPI" ]; then
-            cp CLIProxyAPI "$GITHUB_WORKSPACE/src-tauri/binaries/$BINARY"
-            chmod +x "$GITHUB_WORKSPACE/src-tauri/binaries/$BINARY"
-          elif [ -f "CLIProxyAPI.exe" ]; then
-            cp CLIProxyAPI.exe "$GITHUB_WORKSPACE/src-tauri/binaries/$BINARY"
-          elif [ -f "cli-proxy-api.exe" ]; then
-            cp cli-proxy-api.exe "$GITHUB_WORKSPACE/src-tauri/binaries/$BINARY"
-          elif [ -f "cli-proxy-api" ]; then
-            cp cli-proxy-api "$GITHUB_WORKSPACE/src-tauri/binaries/$BINARY"
-            chmod +x "$GITHUB_WORKSPACE/src-tauri/binaries/$BINARY"
-          else
-            echo "Binary not found!"
-            ls -la
-            exit 1
-          fi
+          echo "Downloading CLIProxyAPI sidecar channel '$CLIPROXYAPI_CHANNEL' for ${{ matrix.target }}..."
+          node scripts/update-sidecar.mjs --channel "$CLIPROXYAPI_CHANNEL" --force "$BINARY"
 
           echo "Downloaded:"
           ls -la "$GITHUB_WORKSPACE/src-tauri/binaries/"

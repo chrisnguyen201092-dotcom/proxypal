@@ -18,7 +18,63 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const BINARIES_DIR = join(__dirname, "..", "src-tauri", "binaries");
-const REPO = process.env.CLIPROXYAPI_REPO || "router-for-me/CLIProxyAPIPlus";
+
+const CHANNELS = {
+  plus: {
+    repo: "router-for-me/CLIProxyAPIPlus",
+    assetPrefix: "CLIProxyAPIPlus",
+    label: "CLIProxyAPIPlus",
+  },
+  mainline: {
+    repo: "router-for-me/CLIProxyAPI",
+    assetPrefix: "CLIProxyAPI",
+    label: "CLIProxyAPI",
+  },
+};
+
+function parseArgs() {
+  const args = process.argv.slice(2);
+  let channel = process.env.CLIPROXYAPI_CHANNEL || "plus";
+  let force = false;
+  let requestedTarget = null;
+
+  for (let i = 0; i < args.length; i += 1) {
+    const arg = args[i];
+    if (arg === "--force") {
+      force = true;
+    } else if (arg === "--channel") {
+      const value = args[i + 1];
+      if (!value) throw new Error("Missing value for --channel");
+      channel = value;
+      i += 1;
+    } else if (arg.startsWith("--channel=")) {
+      channel = arg.slice("--channel=".length);
+    } else if (arg.startsWith("--")) {
+      throw new Error(`Unknown option: ${arg}`);
+    } else if (!requestedTarget) {
+      requestedTarget = arg;
+    } else {
+      throw new Error(`Unexpected argument: ${arg}`);
+    }
+  }
+
+  if (!CHANNELS[channel]) {
+    throw new Error(
+      `Unknown sidecar channel: ${channel}. Expected one of: ${Object.keys(CHANNELS).join(", ")}`,
+    );
+  }
+
+  return { channel, force, requestedTarget };
+}
+
+function getChannelConfig(channel) {
+  const defaults = CHANNELS[channel];
+  return {
+    ...defaults,
+    repo: process.env.CLIPROXYAPI_REPO || defaults.repo,
+    assetPrefix: process.env.CLIPROXYAPI_ASSET_PREFIX || defaults.assetPrefix,
+  };
+}
 
 /**
  * Validate that a file is a real executable, not a gzip archive or other invalid format.
@@ -63,24 +119,24 @@ function getCurrentTarget() {
   return target;
 }
 
-function getAssetInfo(target, version) {
+function getAssetInfo(target, version, assetPrefix) {
   const map = {
-    "cli-proxy-api-aarch64-apple-darwin": [`CLIProxyAPIPlus_${version}_darwin_arm64.tar.gz`, "tar"],
-    "cli-proxy-api-x86_64-apple-darwin": [`CLIProxyAPIPlus_${version}_darwin_amd64.tar.gz`, "tar"],
+    "cli-proxy-api-aarch64-apple-darwin": [`${assetPrefix}_${version}_darwin_arm64.tar.gz`, "tar"],
+    "cli-proxy-api-x86_64-apple-darwin": [`${assetPrefix}_${version}_darwin_amd64.tar.gz`, "tar"],
     "cli-proxy-api-x86_64-unknown-linux-gnu": [
-      `CLIProxyAPIPlus_${version}_linux_amd64.tar.gz`,
+      `${assetPrefix}_${version}_linux_amd64.tar.gz`,
       "tar",
     ],
     "cli-proxy-api-aarch64-unknown-linux-gnu": [
-      `CLIProxyAPIPlus_${version}_linux_arm64.tar.gz`,
+      `${assetPrefix}_${version}_linux_arm64.tar.gz`,
       "tar",
     ],
     "cli-proxy-api-x86_64-pc-windows-msvc.exe": [
-      `CLIProxyAPIPlus_${version}_windows_amd64.zip`,
+      `${assetPrefix}_${version}_windows_amd64.zip`,
       "zip",
     ],
     "cli-proxy-api-aarch64-pc-windows-msvc.exe": [
-      `CLIProxyAPIPlus_${version}_windows_arm64.zip`,
+      `${assetPrefix}_${version}_windows_arm64.zip`,
       "zip",
     ],
   };
@@ -112,12 +168,12 @@ function findBinary(dir, { includeExe = false } = {}) {
   return null;
 }
 
-async function downloadTarget(target, version) {
-  const assetInfo = getAssetInfo(target, version);
+async function downloadTarget(target, version, channelConfig) {
+  const assetInfo = getAssetInfo(target, version, channelConfig.assetPrefix);
   if (!assetInfo) throw new Error(`Unknown target: ${target}`);
 
   const [assetName, archiveType] = assetInfo;
-  const url = `https://github.com/${REPO}/releases/download/v${version}/${assetName}`;
+  const url = `https://github.com/${channelConfig.repo}/releases/download/v${version}/${assetName}`;
 
   console.log(`Downloading ${assetName}...`);
 
@@ -170,21 +226,36 @@ async function downloadTarget(target, version) {
 }
 
 async function main() {
+  const { channel, force, requestedTarget } = parseArgs();
+  const channelConfig = getChannelConfig(channel);
+
   // Fetch latest version
-  const apiRes = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`);
-  if (!apiRes.ok) throw new Error(`GitHub API error (${apiRes.status}): ${apiRes.statusText}`);
+  const headers = { "User-Agent": "proxypal-sidecar-updater" };
+  const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const apiUrl = `https://api.github.com/repos/${channelConfig.repo}/releases/latest`;
+  const apiRes = await fetch(apiUrl, { headers });
+  if (!apiRes.ok) {
+    const hint =
+      channel === "plus"
+        ? "\nCLIProxyAPIPlus may be private, renamed, or unavailable. To use mainline instead, run: CLIPROXYAPI_CHANNEL=mainline pnpm update-sidecar"
+        : "";
+    throw new Error(
+      `GitHub API error (${apiRes.status}): ${apiRes.statusText} for ${apiUrl}${hint}`,
+    );
+  }
   const release = await apiRes.json();
   const version = release.tag_name.replace(/^v/, "");
-  console.log(`CLIProxyAPI version: ${version}`);
+  console.log(`${channelConfig.label} channel: ${channel}`);
+  console.log(`${channelConfig.label} repo: ${channelConfig.repo}`);
+  console.log(`${channelConfig.label} version: ${version}`);
 
   mkdirSync(BINARIES_DIR, { recursive: true });
 
-  const args = process.argv.slice(2);
-  const force = args.includes("--force");
-  const requestedTarget = args.find((a) => !a.startsWith("--"));
   if (requestedTarget) {
     // Download specific target
-    await downloadTarget(requestedTarget, version);
+    await downloadTarget(requestedTarget, version, channelConfig);
   } else {
     // Download for current platform only
     const target = getCurrentTarget();
@@ -193,7 +264,7 @@ async function main() {
       console.log(`Binary exists: ${destPath} (use --force to re-download)`);
       return;
     }
-    await downloadTarget(target, version);
+    await downloadTarget(target, version, channelConfig);
   }
 }
 
