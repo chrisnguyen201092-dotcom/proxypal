@@ -8,9 +8,9 @@ on:
   workflow_dispatch:
     inputs:
       sidecar_channel:
-        description: "Sidecar release channel to bundle"
+        description: "Sidecar release channel to bundle (mainline is CI-safe; Plus may be unavailable)"
         required: true
-        default: "plus"
+        default: "mainline"
         type: choice
         options:
           - plus
@@ -18,7 +18,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  CLIPROXYAPI_CHANNEL: ${{ github.event.inputs.sidecar_channel || 'plus' }}
+  CLIPROXYAPI_CHANNEL: ${{ github.event.inputs.sidecar_channel || 'mainline' }}
 
 jobs:
   check:
